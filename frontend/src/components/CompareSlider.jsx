@@ -13,17 +13,17 @@ export default function CompareSlider({ beforeSrc, afterSrc, beforeLabel = 'ì›ë
         <span>{afterLabel}</span>
       </div>
 
-      <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-bronze/15 bg-ivory-warm shadow-soft">
+      <div className="relative flex min-h-[240px] w-full items-center justify-center overflow-hidden rounded-xl border border-bronze/15 bg-ivory-warm shadow-soft">
         <img
           src={afterSrc}
           alt={afterLabel}
-          className="absolute inset-0 h-full w-full object-contain"
+          className="relative mx-auto block max-h-[min(70vh,560px)] w-full object-contain"
           draggable={false}
         />
         <img
           src={beforeSrc}
           alt={beforeLabel}
-          className="absolute inset-0 h-full w-full object-contain"
+          className="absolute left-0 top-0 mx-auto max-h-[min(70vh,560px)] w-full object-contain"
           style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}
           draggable={false}
         />

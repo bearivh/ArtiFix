@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import ImageUploader from '../components/ImageUploader.jsx'
+import UploadOptions from '../components/UploadOptions.jsx'
 import ResultViewer from '../components/ResultViewer.jsx'
 import Header from '../components/Header.jsx'
 import Footer from '../components/Footer.jsx'
@@ -8,9 +9,10 @@ import {
   parsePredictResult,
   USE_MOCK_API,
   ApiError,
+  DEFAULT_SEG_THRESHOLD,
 } from '../api/api.js'
 
-function LoadingSpinner() {
+function LoadingSpinner({ message = '손상 영역을 분석하는 중...' }) {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16">
       <div className="relative h-14 w-14">
@@ -20,19 +22,22 @@ function LoadingSpinner() {
           <path d="M12 2l2.4 7.4H22l-6 4.6 2.3 7-6.3-4.6L6 21l2.3-7-6-4.6h7.6z" />
         </svg>
       </div>
-      <p className="text-sm font-medium tracking-wide text-bronze-light">
-        손상 영역을 분석하는 중...
-      </p>
-      <p className="text-xs text-bronze-light/70">서버에서 이미지를 처리하고 있습니다</p>
+      <p className="text-sm font-medium tracking-wide text-bronze-light">{message}</p>
     </div>
   )
 }
 
 export default function Home() {
   const [previewUrl, setPreviewUrl] = useState(null)
+  const [uploadedFile, setUploadedFile] = useState(null)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [sensitivity, setSensitivity] = useState(DEFAULT_SEG_THRESHOLD)
+  const [useAutoCrop, setUseAutoCrop] = useState(true)
+
+  const skipSensitivityEffect = useRef(true)
+  const hasResult = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -40,37 +45,68 @@ export default function Home() {
     }
   }, [previewUrl])
 
-  const handleUpload = async (file) => {
-    setError('')
-    setResult(null)
-
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    const objectUrl = URL.createObjectURL(file)
-    setPreviewUrl(objectUrl)
-
+  const runAnalysis = useCallback(async (file, segThreshold, autoCrop) => {
+    if (!file) return
     setLoading(true)
+    setError('')
     try {
-      const data = await predict(file)
+      const data = await predict(file, segThreshold, autoCrop)
       setResult(parsePredictResult(data))
+      hasResult.current = true
     } catch (err) {
-      if (err instanceof ApiError) {
-        setError(err.message)
-      } else if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('분석 중 알 수 없는 오류가 발생했습니다.')
-      }
+      if (err instanceof ApiError) setError(err.message)
+      else if (err instanceof Error) setError(err.message)
+      else setError('분석 중 알 수 없는 오류가 발생했습니다.')
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  const handleUpload = async (file) => {
+    setResult(null)
+    hasResult.current = false
+    skipSensitivityEffect.current = true
+
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(URL.createObjectURL(file))
+    setUploadedFile(file)
+
+    await runAnalysis(file, sensitivity, useAutoCrop)
+
+    skipSensitivityEffect.current = false
   }
+
+  const handleSensitivityCommit = useCallback(
+    (value) => {
+      if (!uploadedFile || !hasResult.current || skipSensitivityEffect.current) {
+        setSensitivity(value)
+        return
+      }
+      if (Math.abs(value - sensitivity) < 0.0001) return
+
+      setSensitivity(value)
+      setResult(null)
+      runAnalysis(uploadedFile, value, useAutoCrop)
+    },
+    [uploadedFile, sensitivity, useAutoCrop, runAnalysis],
+  )
 
   const handleReset = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setPreviewUrl(null)
+    setUploadedFile(null)
     setResult(null)
     setError('')
+    setLoading(false)
+    setSensitivity(DEFAULT_SEG_THRESHOLD)
+    setUseAutoCrop(true)
+    hasResult.current = false
+    skipSensitivityEffect.current = true
   }
+
+  const loadingMessage = hasResult.current
+    ? '민감도 변경 — 재분석 중...'
+    : '손상 영역을 분석하는 중...'
 
   return (
     <div className="min-h-screen">
@@ -104,25 +140,33 @@ export default function Home() {
         </section>
 
         <section className="mb-10">
-          {!loading && !result && (
-            <ImageUploader onUpload={handleUpload} disabled={loading} />
+          {!uploadedFile && (
+            <>
+              <UploadOptions
+                useAutoCrop={useAutoCrop}
+                onUseAutoCropChange={setUseAutoCrop}
+                disabled={loading}
+              />
+              <ImageUploader onUpload={handleUpload} disabled={loading} />
+            </>
           )}
 
-          {previewUrl && loading && (
-            <div className="card-panel mt-6 p-5">
-              <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-bronze-light">
-                업로드 미리보기
-              </p>
-              <div className="aspect-video max-h-48 overflow-hidden rounded-xl border border-bronze/10 bg-ivory-warm opacity-60">
-                <img src={previewUrl} alt="미리보기" className="h-full w-full object-contain" />
+          {uploadedFile && loading && (
+            <>
+              {previewUrl && (
+                <div className="card-panel mb-4 p-5">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-bronze-light">
+                    업로드 미리보기
+                  </p>
+                  <div className="aspect-video max-h-48 overflow-hidden rounded-xl border border-bronze/10 bg-ivory-warm opacity-60">
+                    <img src={previewUrl} alt="미리보기" className="h-full w-full object-contain" />
+                  </div>
+                </div>
+              )}
+              <div className="card-panel">
+                <LoadingSpinner message={loadingMessage} />
               </div>
-            </div>
-          )}
-
-          {loading && (
-            <div className="card-panel mt-6">
-              <LoadingSpinner />
-            </div>
+            </>
           )}
 
           {error && (
@@ -144,10 +188,12 @@ export default function Home() {
               </button>
             </div>
             <ResultViewer
-              originalSrc={result.originalSrc}
-              overlaySrc={result.overlaySrc}
-              maskSrc={result.maskSrc}
-              labels={result.labels}
+              result={result}
+              imageFile={uploadedFile}
+              sensitivity={sensitivity}
+              onSensitivityCommit={handleSensitivityCommit}
+              useAutoCrop={useAutoCrop}
+              analyzing={false}
             />
           </section>
         )}
