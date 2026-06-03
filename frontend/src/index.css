@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen bg-ivory font-sans text-bronze-dark antialiased;
+    background-image: linear-gradient(180deg, #FDFCF9 0%, #FAF8F4 50%, #F5F1EA 100%);
+  }
+}
+
+@layer components {
+  .card-panel {
+    @apply rounded-2xl border border-bronze/15 bg-pure shadow-soft;
+  }
+
+  .btn-bronze {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-bronze-light bg-pure px-5 py-2.5 text-sm font-medium text-bronze-dark transition hover:border-bronze-glow hover:bg-bronze-subtle hover:shadow-bronze disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-bronze-solid {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-bronze bg-bronze px-5 py-2.5 text-sm font-medium text-pure transition hover:border-bronze-dark hover:bg-bronze-dark hover:shadow-bronze disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .nav-link {
+    @apply rounded-lg px-4 py-2 text-sm font-medium text-bronze-light transition hover:bg-bronze-muted hover:text-bronze-dark;
+  }
+
+  .nav-link-active {
+    @apply rounded-lg border border-bronze/25 bg-bronze-muted px-4 py-2 text-sm font-medium text-bronze-dark;
+  }
+}
+
+@layer utilities {
+  .compare-slider-input {
+    @apply absolute inset-0 z-20 h-full w-full cursor-ew-resize opacity-0;
+  }
+}
