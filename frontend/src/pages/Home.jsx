@@ -10,7 +10,10 @@ import {
   USE_MOCK_API,
   ApiError,
   DEFAULT_SEG_THRESHOLD,
+  DEFAULT_MODEL_VARIANT,
 } from '../api/api.js'
+import InfoTooltip from '../components/InfoTooltip.jsx'
+import { HELP } from '../utils/featureHelp.js'
 
 function LoadingSpinner({ message = '손상 영역을 분석하는 중...' }) {
   return (
@@ -35,6 +38,7 @@ export default function Home() {
   const [error, setError] = useState('')
   const [sensitivity, setSensitivity] = useState(DEFAULT_SEG_THRESHOLD)
   const [useAutoCrop, setUseAutoCrop] = useState(true)
+  const [modelVariant, setModelVariant] = useState(DEFAULT_MODEL_VARIANT)
 
   const skipSensitivityEffect = useRef(true)
   const hasResult = useRef(false)
@@ -45,12 +49,12 @@ export default function Home() {
     }
   }, [previewUrl])
 
-  const runAnalysis = useCallback(async (file, segThreshold, autoCrop) => {
+  const runAnalysis = useCallback(async (file, segThreshold, autoCrop, variant) => {
     if (!file) return
     setLoading(true)
     setError('')
     try {
-      const data = await predict(file, segThreshold, autoCrop)
+      const data = await predict(file, segThreshold, autoCrop, variant)
       setResult(parsePredictResult(data))
       hasResult.current = true
     } catch (err) {
@@ -71,7 +75,7 @@ export default function Home() {
     setPreviewUrl(URL.createObjectURL(file))
     setUploadedFile(file)
 
-    await runAnalysis(file, sensitivity, useAutoCrop)
+    await runAnalysis(file, sensitivity, useAutoCrop, modelVariant)
 
     skipSensitivityEffect.current = false
   }
@@ -86,9 +90,9 @@ export default function Home() {
 
       setSensitivity(value)
       setResult(null)
-      runAnalysis(uploadedFile, value, useAutoCrop)
+      runAnalysis(uploadedFile, value, useAutoCrop, modelVariant)
     },
-    [uploadedFile, sensitivity, useAutoCrop, runAnalysis],
+    [uploadedFile, sensitivity, useAutoCrop, modelVariant, runAnalysis],
   )
 
   const handleReset = () => {
@@ -100,6 +104,7 @@ export default function Home() {
     setLoading(false)
     setSensitivity(DEFAULT_SEG_THRESHOLD)
     setUseAutoCrop(true)
+    setModelVariant(DEFAULT_MODEL_VARIANT)
     hasResult.current = false
     skipSensitivityEffect.current = true
   }
@@ -129,13 +134,14 @@ export default function Home() {
             유형별 confidence를 제공하는 컴퓨터 비전 시스템입니다.
           </p>
           <span
-            className={`mt-5 inline-block rounded-full border px-4 py-1 text-xs font-medium tracking-wide ${
+            className={`mt-5 inline-flex items-center gap-1.5 rounded-full border px-4 py-1 text-xs font-medium tracking-wide ${
               USE_MOCK_API
                 ? 'border-amber-300/50 bg-amber-50 text-amber-800'
                 : 'border-bronze/25 bg-bronze-muted text-bronze'
             }`}
           >
             {USE_MOCK_API ? 'Mock API' : 'Live API · localhost:8000'}
+            <InfoTooltip content={HELP.apiMode} placement="bottom" />
           </span>
         </section>
 
@@ -145,6 +151,8 @@ export default function Home() {
               <UploadOptions
                 useAutoCrop={useAutoCrop}
                 onUseAutoCropChange={setUseAutoCrop}
+                modelVariant={modelVariant}
+                onModelVariantChange={setModelVariant}
                 disabled={loading}
               />
               <ImageUploader onUpload={handleUpload} disabled={loading} />
@@ -183,9 +191,12 @@ export default function Home() {
           <section>
             <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
               <h2 className="text-lg font-semibold tracking-wide text-bronze-dark">분석 결과</h2>
-              <button type="button" onClick={handleReset} className="btn-bronze">
-                새 이미지 업로드
-              </button>
+              <span className="inline-flex items-center gap-2">
+                <button type="button" onClick={handleReset} className="btn-bronze">
+                  새 이미지 업로드
+                </button>
+                <InfoTooltip content={HELP.newUpload} placement="bottom" />
+              </span>
             </div>
             <ResultViewer
               result={result}
@@ -193,6 +204,7 @@ export default function Home() {
               sensitivity={sensitivity}
               onSensitivityCommit={handleSensitivityCommit}
               useAutoCrop={useAutoCrop}
+              modelVariant={modelVariant}
               analyzing={false}
             />
           </section>

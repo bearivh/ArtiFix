@@ -6,12 +6,6 @@ export const DAMAGE_TYPE_LABELS = {
   discoloration: 'Discoloration',
 }
 
-export const DEFAULT_ENABLED_CLASSES = {
-  crack: true,
-  surface_damage: true,
-  discoloration: true,
-}
-
 /** 백엔드 inference.py 와 동일 */
 export const MIN_BBOX_RATIO = 0.001
 export const MIN_BBOX_AREA = 300

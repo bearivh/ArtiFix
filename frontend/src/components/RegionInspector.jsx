@@ -3,6 +3,8 @@ import {
   getPrimaryDamageType,
   getRegionDamageRatio,
 } from '../utils/damageLabels.js'
+import { LabelWithHelp } from './InfoTooltip.jsx'
+import { HELP } from '../utils/featureHelp.js'
 
 export default function RegionInspector({
   bbox,
@@ -29,7 +31,7 @@ export default function RegionInspector({
   return (
     <div className="card-panel p-6">
       <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-bronze-light">
-        Damage Region Inspector
+        <LabelWithHelp help={HELP.regionInspector}>Damage Region Inspector</LabelWithHelp>
       </h3>
       <p className="text-lg font-semibold text-bronze-dark">
         Region #{regionIndex + 1}

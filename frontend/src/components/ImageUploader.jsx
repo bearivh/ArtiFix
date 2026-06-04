@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
+import { LabelWithHelp } from './InfoTooltip.jsx'
+import { HELP } from '../utils/featureHelp.js'
 
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png']
 const ACCEPTED_EXT = '.jpg,.jpeg,.png'
@@ -77,7 +79,9 @@ export default function ImageUploader({ onUpload, disabled = false }) {
           </svg>
         </div>
         <p className="text-base font-medium text-bronze-dark">
-          이미지를 드래그하거나 클릭하여 업로드
+          <LabelWithHelp help={HELP.imageUpload}>
+            이미지를 드래그하거나 클릭하여 업로드
+          </LabelWithHelp>
         </p>
         <p className="mt-2 text-sm text-bronze-light">JPG, PNG · 유물 표면 사진</p>
       </div>

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import Header from '../components/Header.jsx'
 import Footer from '../components/Footer.jsx'
+import { LabelWithHelp } from '../components/InfoTooltip.jsx'
+import { HELP } from '../utils/featureHelp.js'
 
 const TECH_STACK = [
   { name: 'React', desc: 'UI 프레임워크' },
@@ -39,7 +41,9 @@ export default function About() {
         </p>
 
         <section className="card-panel mt-12 p-8">
-          <h2 className="text-xl font-semibold text-bronze-dark">모델 구조</h2>
+          <h2 className="text-xl font-semibold text-bronze-dark">
+            <LabelWithHelp help={HELP.aboutModel}>모델 구조</LabelWithHelp>
+          </h2>
           <div className="mt-6 rounded-xl border border-bronze/15 bg-ivory-warm p-6 font-mono text-sm leading-relaxed text-bronze">
             <p>RGB + Sobel (4채널 입력)</p>
             <p className="my-3 text-center text-bronze-glow">↓</p>
@@ -54,7 +58,9 @@ export default function About() {
         </section>
 
         <section className="card-panel mt-8 p-8">
-          <h2 className="text-xl font-semibold text-bronze-dark">출력</h2>
+          <h2 className="text-xl font-semibold text-bronze-dark">
+            <LabelWithHelp help={HELP.aboutOutputs}>출력</LabelWithHelp>
+          </h2>
           <ul className="mt-4 space-y-3">
             {OUTPUTS.map((item) => (
               <li key={item} className="flex items-start gap-3 text-bronze-light">
@@ -66,7 +72,9 @@ export default function About() {
         </section>
 
         <section className="card-panel mt-8 p-8">
-          <h2 className="text-xl font-semibold text-bronze-dark">기술 스택</h2>
+          <h2 className="text-xl font-semibold text-bronze-dark">
+            <LabelWithHelp help={HELP.aboutTech}>기술 스택</LabelWithHelp>
+          </h2>
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {TECH_STACK.map(({ name, desc }) => (
               <div

@@ -1,5 +1,7 @@
 import CompareSlider from './CompareSlider.jsx'
 import DownloadButton from './DownloadButton.jsx'
+import { LabelWithHelp } from './InfoTooltip.jsx'
+import { HELP } from '../utils/featureHelp.js'
 
 export default function GradCamPanel({ originalSrc, gradcamSrc, primaryLabel }) {
   if (!gradcamSrc) {
@@ -18,7 +20,7 @@ export default function GradCamPanel({ originalSrc, gradcamSrc, primaryLabel }) 
     <div className="space-y-6">
       <div className="card-panel p-6">
         <h3 className="text-xs font-semibold uppercase tracking-widest text-bronze-light">
-          Grad-CAM · 모델 주목 영역
+          <LabelWithHelp help={HELP.gradcamHeatmap}>Grad-CAM · 모델 주목 영역</LabelWithHelp>
         </h3>
         <p className="mt-2 text-sm leading-relaxed text-bronze-light">
           Classification Head 기준으로 모델이 이미지의 어느 부분을 보고 손상 유형을
@@ -39,7 +41,9 @@ export default function GradCamPanel({ originalSrc, gradcamSrc, primaryLabel }) 
       </div>
 
       <div className="card-panel p-6">
-        <h3 className="mb-4 text-sm font-medium text-bronze-dark">원본 vs Grad-CAM</h3>
+        <h3 className="mb-4 text-sm font-medium text-bronze-dark">
+          <LabelWithHelp help={HELP.compareSlider}>원본 vs Grad-CAM</LabelWithHelp>
+        </h3>
         <CompareSlider
           beforeSrc={originalSrc}
           afterSrc={gradcamSrc}
@@ -53,6 +57,7 @@ export default function GradCamPanel({ originalSrc, gradcamSrc, primaryLabel }) 
           dataUrl={gradcamSrc}
           filename="artifix-gradcam.png"
           label="Grad-CAM 이미지 저장"
+          help={HELP.downloadGradcam}
         />
       </div>
     </div>

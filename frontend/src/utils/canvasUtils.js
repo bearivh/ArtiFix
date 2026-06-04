@@ -36,54 +36,6 @@ export async function blendOriginalOverlay(originalSrc, overlaySrc, strength = 0
   return canvas
 }
 
-/**
- * original + 활성화된 class mask 빨간 오버레이 (필터용)
- */
-export async function composeFromClassMasks({
-  originalSrc,
-  classMaskSrcs,
-  enabledClasses,
-  overlayStrength = 0.4,
-}) {
-  const original = await loadImage(originalSrc)
-  const w = original.width
-  const h = original.height
-
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-  ctx.drawImage(original, 0, 0, w, h)
-
-  const maskCanvas = document.createElement('canvas')
-  maskCanvas.width = w
-  maskCanvas.height = h
-  const mctx = maskCanvas.getContext('2d')
-
-  for (const cls of enabledClasses) {
-    const src = classMaskSrcs[cls]
-    if (!src) continue
-    const maskImg = await loadImage(src)
-    mctx.drawImage(maskImg, 0, 0, w, h)
-  }
-
-  const maskData = mctx.getImageData(0, 0, w, h)
-  const imgData = ctx.getImageData(0, 0, w, h)
-  const alpha = Math.max(0, Math.min(1, overlayStrength))
-
-  for (let i = 0; i < maskData.data.length; i += 4) {
-    const m = maskData.data[i]
-    if (m > 127) {
-      imgData.data[i] = imgData.data[i] * (1 - alpha) + 255 * alpha
-      imgData.data[i + 1] = imgData.data[i + 1] * (1 - alpha)
-      imgData.data[i + 2] = imgData.data[i + 2] * (1 - alpha)
-    }
-  }
-  ctx.putImageData(imgData, 0, 0)
-
-  return canvas
-}
-
 export function drawBboxesOnCanvas(ctx, bboxes, selectedIndex = -1, scaleX = 1, scaleY = 1) {
   bboxes.forEach((bbox, index) => {
     const x = bbox.x * scaleX

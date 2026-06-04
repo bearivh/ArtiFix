@@ -3,9 +3,22 @@ const PREDICT_ENDPOINT = `${API_BASE_URL}/predict`
 const REPORT_ENDPOINT = `${API_BASE_URL}/report`
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true'
-export const DETECTION_THRESHOLD = 0.5
 export const DEFAULT_SEG_THRESHOLD = 0.10
 export const DEFAULT_OVERLAY_STRENGTH = 0.4
+
+export const MODEL_VARIANTS = {
+  base: {
+    id: 'base',
+    label: '파인튜닝 전',
+    description: 'best_model.pt',
+  },
+  finetuned: {
+    id: 'finetuned',
+    label: '파인튜닝 후',
+    description: 'best_finetuned.pt',
+  },
+}
+export const DEFAULT_MODEL_VARIANT = 'finetuned'
 
 const MOCK_LABELS = {
   crack: 0.91,
@@ -20,8 +33,6 @@ const MOCK_BBOXES = [
 
 const MOCK_DELAY_MS = 1200
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/jpg']
-const DAMAGE_CLASSES = ['crack', 'surface_damage', 'discoloration']
-
 export class ApiError extends Error {
   constructor(message, code = 'UNKNOWN') {
     super(message)
@@ -79,12 +90,6 @@ function validatePredictResponse(data) {
     throw new ApiError('labels 형식이 올바르지 않습니다.', 'INVALID_RESPONSE')
   }
 
-  if (data.class_masks !== undefined) {
-    if (typeof data.class_masks !== 'object' || Array.isArray(data.class_masks)) {
-      throw new ApiError('class_masks 형식이 올바르지 않습니다.', 'INVALID_RESPONSE')
-    }
-  }
-
   if (data.damage_ratio !== undefined && typeof data.damage_ratio !== 'number') {
     throw new ApiError('damage_ratio 형식이 올바르지 않습니다.', 'INVALID_RESPONSE')
   }
@@ -107,23 +112,15 @@ function validatePredictResponse(data) {
   return data
 }
 
-function buildMockClassMasks(base64) {
-  const masks = {}
-  for (const cls of DAMAGE_CLASSES) {
-    masks[cls] = MOCK_LABELS[cls] >= DETECTION_THRESHOLD ? base64 : ''
-  }
-  return masks
-}
-
 export async function predictMock(
   imageFile,
   segThreshold = DEFAULT_SEG_THRESHOLD,
   useAutoCrop = true,
+  modelVariant = DEFAULT_MODEL_VARIANT,
 ) {
   validateImageFile(imageFile)
   await delay(MOCK_DELAY_MS)
   const base64 = await fileToBase64(imageFile)
-  const class_masks = buildMockClassMasks(base64)
 
   return {
     original_image: base64,
@@ -131,12 +128,12 @@ export async function predictMock(
     overlay_image: base64,
     gradcam_image: base64,
     labels: { ...MOCK_LABELS },
-    class_masks,
     damage_ratio: 12.35,
     severity: 'MEDIUM',
     bboxes: MOCK_BBOXES,
     bbox_count: MOCK_BBOXES.length,
     seg_threshold: segThreshold,
+    model_variant: modelVariant,
   }
 }
 
@@ -144,6 +141,7 @@ export async function predictReal(
   imageFile,
   segThreshold = DEFAULT_SEG_THRESHOLD,
   useAutoCrop = true,
+  modelVariant = DEFAULT_MODEL_VARIANT,
 ) {
   validateImageFile(imageFile)
 
@@ -151,6 +149,7 @@ export async function predictReal(
   formData.append('image', imageFile)
   formData.append('seg_threshold', String(segThreshold))
   formData.append('use_auto_crop', useAutoCrop ? 'true' : 'false')
+  formData.append('model_variant', modelVariant)
 
   let response
   try {
@@ -186,20 +185,14 @@ export async function predict(
   imageFile,
   segThreshold = DEFAULT_SEG_THRESHOLD,
   useAutoCrop = true,
+  modelVariant = DEFAULT_MODEL_VARIANT,
 ) {
-  if (USE_MOCK_API) return predictMock(imageFile, segThreshold, useAutoCrop)
-  return predictReal(imageFile, segThreshold, useAutoCrop)
+  if (USE_MOCK_API) return predictMock(imageFile, segThreshold, useAutoCrop, modelVariant)
+  return predictReal(imageFile, segThreshold, useAutoCrop, modelVariant)
 }
 
 export function parsePredictResult(data) {
   const validated = validatePredictResponse(data)
-
-  const classMaskSrcs = {}
-  if (validated.class_masks) {
-    for (const [key, b64] of Object.entries(validated.class_masks)) {
-      classMaskSrcs[key] = b64 ? base64ToDataUrl(b64) : ''
-    }
-  }
 
   return {
     originalSrc: base64ToDataUrl(validated.original_image),
@@ -209,24 +202,28 @@ export function parsePredictResult(data) {
       ? base64ToDataUrl(validated.gradcam_image)
       : '',
     labels: validated.labels,
-    classMaskSrcs,
     damageRatio: validated.damage_ratio ?? null,
     severity: validated.severity ?? 'NONE',
     bboxes: validated.bboxes ?? [],
     bboxCount: validated.bbox_count ?? (validated.bboxes?.length ?? 0),
     imageWidth: validated.image_width ?? 256,
     imageHeight: validated.image_height ?? 256,
+    modelVariant: validated.model_variant ?? DEFAULT_MODEL_VARIANT,
   }
 }
 
-export function isDetected(confidence) {
-  return confidence >= DETECTION_THRESHOLD
+export function getModelVariantLabel(variant) {
+  return MODEL_VARIANTS[variant]?.label ?? variant
 }
 
 /**
  * PDF 분석 보고서 다운로드 (POST /report)
  */
-export async function downloadReport(imageFile, useAutoCrop = true) {
+export async function downloadReport(
+  imageFile,
+  useAutoCrop = true,
+  modelVariant = DEFAULT_MODEL_VARIANT,
+) {
   validateImageFile(imageFile)
 
   if (USE_MOCK_API) {
@@ -239,6 +236,7 @@ export async function downloadReport(imageFile, useAutoCrop = true) {
   const formData = new FormData()
   formData.append('image', imageFile)
   formData.append('use_auto_crop', useAutoCrop ? 'true' : 'false')
+  formData.append('model_variant', modelVariant)
 
   let response
   try {

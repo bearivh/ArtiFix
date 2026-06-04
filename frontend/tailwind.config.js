@@ -17,6 +17,18 @@ export default {
           muted: '#EDE6DC',
           subtle: '#F7F3EE',
         },
+        navy: {
+          DEFAULT: '#0f1b2d',
+          dark: '#0a1220',
+          card: '#152238',
+          border: '#1e3a5f',
+        },
+        forest: {
+          DEFAULT: '#1b4332',
+          dark: '#14532d',
+          light: '#2d6a4f',
+          glow: '#40916c',
+        },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   blendOriginalOverlay,
-  composeFromClassMasks,
   drawBboxesOnCanvas,
   getBboxAtPoint,
   loadImage,
@@ -10,9 +9,6 @@ import {
 export default function InteractiveCanvas({
   originalSrc,
   overlaySrc,
-  classMaskSrcs,
-  enabledClasses,
-  useClassFilter,
   overlayStrength,
   bboxes,
   selectedBboxIndex,
@@ -24,23 +20,12 @@ export default function InteractiveCanvas({
   const [imageSize, setImageSize] = useState({ w: 256, h: 256 })
   const [rendering, setRendering] = useState(false)
 
-  const enabledList = Object.entries(enabledClasses)
-    .filter(([, on]) => on)
-    .map(([k]) => k)
-
   const render = useCallback(async () => {
     if (!originalSrc || !canvasRef.current) return
     setRendering(true)
     try {
       let canvas
-      if (useClassFilter && classMaskSrcs && enabledList.length > 0) {
-        canvas = await composeFromClassMasks({
-          originalSrc,
-          classMaskSrcs,
-          enabledClasses: enabledList,
-          overlayStrength,
-        })
-      } else if (overlaySrc) {
+      if (overlaySrc) {
         canvas = await blendOriginalOverlay(originalSrc, overlaySrc, overlayStrength)
       } else {
         const img = await loadImage(originalSrc)
@@ -77,16 +62,7 @@ export default function InteractiveCanvas({
     } finally {
       setRendering(false)
     }
-  }, [
-    originalSrc,
-    overlaySrc,
-    classMaskSrcs,
-    enabledList.join(','),
-    useClassFilter,
-    overlayStrength,
-    bboxes,
-    selectedBboxIndex,
-  ])
+  }, [originalSrc, overlaySrc, overlayStrength, bboxes, selectedBboxIndex])
 
   useEffect(() => {
     render()
