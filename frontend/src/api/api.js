@@ -3,7 +3,7 @@ const PREDICT_ENDPOINT = `${API_BASE_URL}/predict`
 const REPORT_ENDPOINT = `${API_BASE_URL}/report`
 
 export const USE_MOCK_API = import.meta.env.VITE_USE_MOCK_API === 'true'
-export const DEFAULT_SEG_THRESHOLD = 0.10
+export const DEFAULT_SEG_THRESHOLD = 0.25
 export const DEFAULT_OVERLAY_STRENGTH = 0.4
 
 export const MODEL_VARIANTS = {
@@ -19,6 +19,20 @@ export const MODEL_VARIANTS = {
   },
 }
 export const DEFAULT_MODEL_VARIANT = 'finetuned'
+
+export const CROP_MODES = {
+  rembg: {
+    id: 'rembg',
+    label: 'AI Background Removal (추천)',
+    description: 'rembg로 배경·그림자 제거 후 유물 영역 crop',
+  },
+  legacy: {
+    id: 'legacy',
+    label: 'Legacy Crop',
+    description: 'HSV·Otsu·Edge 기반 기존 crop',
+  },
+}
+export const DEFAULT_CROP_MODE = 'rembg'
 
 const MOCK_LABELS = {
   crack: 0.91,
@@ -109,6 +123,14 @@ function validatePredictResponse(data) {
     throw new ApiError('gradcam_image 형식이 올바르지 않습니다.', 'INVALID_RESPONSE')
   }
 
+  if (data.artifact_image !== undefined && typeof data.artifact_image !== 'string') {
+    throw new ApiError('artifact_image 형식이 올바르지 않습니다.', 'INVALID_RESPONSE')
+  }
+
+  if (data.artifact_overlay_image !== undefined && typeof data.artifact_overlay_image !== 'string') {
+    throw new ApiError('artifact_overlay_image 형식이 올바르지 않습니다.', 'INVALID_RESPONSE')
+  }
+
   return data
 }
 
@@ -117,6 +139,7 @@ export async function predictMock(
   segThreshold = DEFAULT_SEG_THRESHOLD,
   useAutoCrop = true,
   modelVariant = DEFAULT_MODEL_VARIANT,
+  cropMode = DEFAULT_CROP_MODE,
 ) {
   validateImageFile(imageFile)
   await delay(MOCK_DELAY_MS)
@@ -124,8 +147,10 @@ export async function predictMock(
 
   return {
     original_image: base64,
+    artifact_image: base64,
     mask_image: base64,
     overlay_image: base64,
+    artifact_overlay_image: base64,
     gradcam_image: base64,
     labels: { ...MOCK_LABELS },
     damage_ratio: 12.35,
@@ -142,6 +167,7 @@ export async function predictReal(
   segThreshold = DEFAULT_SEG_THRESHOLD,
   useAutoCrop = true,
   modelVariant = DEFAULT_MODEL_VARIANT,
+  cropMode = DEFAULT_CROP_MODE,
 ) {
   validateImageFile(imageFile)
 
@@ -150,6 +176,7 @@ export async function predictReal(
   formData.append('seg_threshold', String(segThreshold))
   formData.append('use_auto_crop', useAutoCrop ? 'true' : 'false')
   formData.append('model_variant', modelVariant)
+  formData.append('crop_mode', cropMode)
 
   let response
   try {
@@ -186,9 +213,12 @@ export async function predict(
   segThreshold = DEFAULT_SEG_THRESHOLD,
   useAutoCrop = true,
   modelVariant = DEFAULT_MODEL_VARIANT,
+  cropMode = DEFAULT_CROP_MODE,
 ) {
-  if (USE_MOCK_API) return predictMock(imageFile, segThreshold, useAutoCrop, modelVariant)
-  return predictReal(imageFile, segThreshold, useAutoCrop, modelVariant)
+  if (USE_MOCK_API) {
+    return predictMock(imageFile, segThreshold, useAutoCrop, modelVariant, cropMode)
+  }
+  return predictReal(imageFile, segThreshold, useAutoCrop, modelVariant, cropMode)
 }
 
 export function parsePredictResult(data) {
@@ -196,8 +226,14 @@ export function parsePredictResult(data) {
 
   return {
     originalSrc: base64ToDataUrl(validated.original_image),
+    artifactSrc: validated.artifact_image
+      ? base64ToDataUrl(validated.artifact_image, 'image/png')
+      : '',
     maskSrc: base64ToDataUrl(validated.mask_image),
     overlaySrc: base64ToDataUrl(validated.overlay_image),
+    artifactOverlaySrc: validated.artifact_overlay_image
+      ? base64ToDataUrl(validated.artifact_overlay_image, 'image/png')
+      : '',
     gradcamSrc: validated.gradcam_image
       ? base64ToDataUrl(validated.gradcam_image)
       : '',
@@ -223,6 +259,7 @@ export async function downloadReport(
   imageFile,
   useAutoCrop = true,
   modelVariant = DEFAULT_MODEL_VARIANT,
+  cropMode = DEFAULT_CROP_MODE,
 ) {
   validateImageFile(imageFile)
 
@@ -237,6 +274,7 @@ export async function downloadReport(
   formData.append('image', imageFile)
   formData.append('use_auto_crop', useAutoCrop ? 'true' : 'false')
   formData.append('model_variant', modelVariant)
+  formData.append('crop_mode', cropMode)
 
   let response
   try {

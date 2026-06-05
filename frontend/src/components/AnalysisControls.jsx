@@ -65,7 +65,7 @@ export default function AnalysisControls({
         help={HELP.sensitivity}
         value={draftSensitivity}
         min={0.05}
-        max={0.3}
+        max={0.6}
         step={0.01}
         onChange={setDraftSensitivity}
         onCommit={onSensitivityCommit}

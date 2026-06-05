@@ -14,6 +14,11 @@ CLASS_NAMES = ['crack', 'surface_damage', 'discoloration']
 
 CROP_MIN_AREA_RATIO = 0.35
 CROP_MIN_HEIGHT_RATIO = 0.4
+REMBG_PADDING_RATIO = 0.15
+REMBG_ALPHA_THRESHOLD = 128
+REMBG_BG_RGB = (250, 248, 244)
+VALID_CROP_MODES = ('rembg', 'legacy')
+_REMBG_SESSION = None
 MIN_BBOX_RATIO = 0.001
 MIN_BBOX_AREA = 300
 MORPH_KERNEL = np.ones((3, 3), np.uint8)
@@ -358,6 +363,37 @@ def artifact_core_from_crop(cropped_rgb):
     return core, filled, otsu_bg
 
 
+def _get_rembg_session():
+    global _REMBG_SESSION
+    if _REMBG_SESSION is None:
+        from rembg import new_session
+        _REMBG_SESSION = new_session('u2net')
+    return _REMBG_SESSION
+
+
+def _composite_rembg_rgba(rgba, bg_rgb=REMBG_BG_RGB):
+    """rembg RGBA → 배경 제거 합성 RGB + 이진 foreground mask."""
+    alpha = rgba[:, :, 3].astype(np.float32) / 255.0
+    rgb = rgba[:, :, :3].astype(np.float32)
+    bg = np.array(bg_rgb, dtype=np.float32)
+    cutout = (rgb * alpha[..., None] + bg * (1.0 - alpha[..., None])).astype(np.uint8)
+    mask = (rgba[:, :, 3] >= REMBG_ALPHA_THRESHOLD).astype(np.uint8) * 255
+    return cutout, mask
+
+
+def artifact_masks_from_rembg(cropped_rgb, rembg_mask):
+    """rembg crop mask → segmentation용 artifact filled/core."""
+    filled = artifact_mask_to_filled(rembg_mask)
+    if count_mask_pixels(filled) < 50:
+        filled = refine_artifact_mask_light(rembg_mask)
+    core = weak_erode_artifact_mask(filled)
+    cropped_bgr = cv2.cvtColor(cropped_rgb, cv2.COLOR_RGB2BGR)
+    gray = cv2.cvtColor(cropped_bgr, cv2.COLOR_BGR2GRAY)
+    gray_blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, otsu_bg = cv2.threshold(gray_blur, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    return core, filled, otsu_bg
+
+
 def artifact_mask_to_filled(mask_uint8):
     """유물 contour를 채운 마스크 (crop 원본 해상도)."""
     h, w = mask_uint8.shape[:2]
@@ -404,6 +440,81 @@ def auto_crop_artifact_v3(img_bgr, padding_ratio=0.01, min_area_ratio=0.01):
 def auto_crop_artifact(img_bgr, **kwargs):
     cropped_rgb, bbox, _ = auto_crop_artifact_v3(img_bgr, **kwargs)
     return cropped_rgb, bbox
+
+
+def rembg_crop_artifact(img_bgr, padding_ratio=REMBG_PADDING_RATIO, min_area_ratio=0.01):
+    """rembg 배경 제거 → morphology → bbox crop (crop 이미지도 누끼 적용)."""
+    try:
+        from PIL import Image
+        from rembg import remove
+    except ImportError as e:
+        raise ImportError(
+            'rembg 실행에 필요한 패키지가 없습니다. '
+            'backend에서 pip install "rembg[cpu]" 후 서버를 재시작하세요.'
+        ) from e
+
+    img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    h, w = img_rgb.shape[:2]
+
+    pil_img = Image.fromarray(img_rgb)
+    output = remove(pil_img, session=_get_rembg_session())
+    rgba = np.array(output)
+
+    if rgba.ndim != 3 or rgba.shape[2] < 4:
+        raise ValueError('rembg output has no alpha channel')
+
+    cutout_rgb, artifact_mask = _composite_rembg_rgba(rgba)
+
+    artifact_mask = cv2.morphologyEx(
+        artifact_mask, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8)
+    )
+    artifact_mask = cv2.morphologyEx(
+        artifact_mask, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8)
+    )
+
+    contours, _ = cv2.findContours(
+        artifact_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+    )
+    if not contours:
+        raise ValueError('rembg mask produced no contours')
+
+    min_area = h * w * min_area_ratio
+    contours = [c for c in contours if cv2.contourArea(c) >= min_area]
+    if not contours:
+        raise ValueError('rembg contours below min area')
+
+    largest = max(contours, key=cv2.contourArea)
+    x, y, bw, bh = cv2.boundingRect(largest)
+    pad = int(max(bw, bh) * padding_ratio)
+    x1 = max(0, x - pad)
+    y1 = max(0, y - pad)
+    x2 = min(w, x + bw + pad)
+    y2 = min(h, y + bh + pad)
+    cropped_rgb = cutout_rgb[y1:y2, x1:x2]
+    return cropped_rgb, (x1, y1, x2, y2), artifact_mask
+
+
+def auto_crop_by_mode(img_bgr, crop_mode='rembg'):
+    """
+    crop_mode: 'rembg' (AI 배경 제거, 실패 시 legacy) | 'legacy' (HSV/Otsu v3)
+    Returns (cropped_rgb, bbox_tuple, artifact_mask, mode_used).
+    """
+    mode = crop_mode if crop_mode in VALID_CROP_MODES else 'rembg'
+
+    if mode == 'legacy':
+        cropped_rgb, bbox_tuple, artifact_mask = auto_crop_artifact_v3(img_bgr)
+        return cropped_rgb, bbox_tuple, artifact_mask, 'legacy'
+
+    try:
+        cropped_rgb, bbox_tuple, artifact_mask = rembg_crop_artifact(img_bgr)
+        h, w = artifact_mask.shape[:2]
+        fg_ratio = round(count_mask_pixels(artifact_mask) / max(h * w, 1), 4)
+        print({'rembg_foreground_ratio': fg_ratio})
+        return cropped_rgb, bbox_tuple, artifact_mask, 'rembg'
+    except Exception as e:
+        print({'rembg_crop_error': str(e), 'fallback': 'legacy'})
+        cropped_rgb, bbox_tuple, artifact_mask = auto_crop_artifact_v3(img_bgr)
+        return cropped_rgb, bbox_tuple, artifact_mask, 'legacy_fallback'
 
 
 def build_artifact_silhouette_mask(img_bgr):
@@ -581,7 +692,7 @@ def recrop_tight_to_silhouette(img_rgb, padding_ratio=0.02):
     return img_rgb[y1:y2, x1:x2], (x1, y1, x2, y2), float(filled_ratio)
 
 
-def preprocess(img_bgr, use_auto_crop=True):
+def preprocess(img_bgr, use_auto_crop=True, crop_mode='rembg'):
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
     h, w = img_rgb.shape[:2]
     artifact_mask_full = build_artifact_mask_hsv(img_bgr)
@@ -589,18 +700,22 @@ def preprocess(img_bgr, use_auto_crop=True):
     crop_ratio = 1.0
     bbox = [0, 0, w, h]
     silhouette_ratio = None
+    crop_mode_used = 'none'
 
     if not use_auto_crop:
         cropped_rgb = img_rgb
         cropped_artifact_mask = artifact_mask_full
         print({
+            'crop_mode': 'disabled',
             'crop_ratio': 1.0,
             'bbox': bbox,
             'fallback': False,
             'use_auto_crop': False,
         })
     else:
-        cropped_rgb, bbox_tuple, artifact_mask = auto_crop_artifact_v3(img_bgr)
+        cropped_rgb, bbox_tuple, artifact_mask, crop_mode_used = auto_crop_by_mode(
+            img_bgr, crop_mode=crop_mode
+        )
         x1, y1, x2, y2 = bbox_tuple
         bbox_w = x2 - x1
         bbox_h = y2 - y1
@@ -615,12 +730,13 @@ def preprocess(img_bgr, use_auto_crop=True):
         if fallback:
             cropped_rgb = img_rgb
             cropped_artifact_mask = artifact_mask_full
+            crop_mode_used = 'fallback_original'
         elif (x1, y1, x2, y2) == (0, 0, w, h):
             cropped_artifact_mask = artifact_mask
         else:
             cropped_artifact_mask = artifact_mask[y1:y2, x1:x2]
 
-        if not fallback and crop_ratio >= 0.95:
+        if not fallback and crop_ratio >= 0.95 and crop_mode_used != 'rembg':
             cropped_rgb, bbox_tuple, silhouette_ratio = recrop_tight_to_silhouette(cropped_rgb)
             x1, y1, x2, y2 = bbox_tuple
             bbox_w = x2 - x1
@@ -629,6 +745,7 @@ def preprocess(img_bgr, use_auto_crop=True):
             bbox = [int(x1), int(y1), int(x2), int(y2)]
 
         print({
+            'crop_mode': crop_mode_used,
             'crop_ratio': round(crop_ratio, 4),
             'bbox': bbox,
             'fallback': fallback,
@@ -644,13 +761,27 @@ def preprocess(img_bgr, use_auto_crop=True):
 
     aug    = transform(image=image, mask=np.zeros(image.shape[:2], dtype=np.float32))
     tensor = aug['image'].unsqueeze(0).to(DEVICE)
-    return tensor, cropped_rgb, cropped_artifact_mask
+    return tensor, cropped_rgb, cropped_artifact_mask, crop_mode_used
 
 
-def predict(model, img_bgr, seg_threshold=0.10, cls_threshold=0.5, use_auto_crop=True):
-    tensor, cropped_rgb, _cropped_artifact_mask = preprocess(img_bgr, use_auto_crop=use_auto_crop)
+def predict(
+    model,
+    img_bgr,
+    seg_threshold=0.10,
+    cls_threshold=0.5,
+    use_auto_crop=True,
+    crop_mode='rembg',
+):
+    tensor, cropped_rgb, cropped_artifact_mask, crop_mode_used = preprocess(
+        img_bgr, use_auto_crop=use_auto_crop, crop_mode=crop_mode
+    )
     crop_h, crop_w = cropped_rgb.shape[:2]
-    artifact_core, artifact_filled, otsu_bg = artifact_core_from_crop(cropped_rgb)
+    if crop_mode_used == 'rembg' and cropped_artifact_mask is not None:
+        artifact_core, artifact_filled, otsu_bg = artifact_masks_from_rembg(
+            cropped_rgb, cropped_artifact_mask
+        )
+    else:
+        artifact_core, artifact_filled, otsu_bg = artifact_core_from_crop(cropped_rgb)
     damage_allowed, exterior_bg = build_damage_allowed_mask(cropped_rgb, artifact_filled)
     damage_fg_f = damage_allowed.astype(np.float32) / 255.0
     crop_area = max(crop_h * crop_w, 1)
@@ -816,11 +947,17 @@ def predict(model, img_bgr, seg_threshold=0.10, cls_threshold=0.5, use_auto_crop
         print(f'Grad-CAM 실패: {e}')
         gradcam_overlay = img_vis.copy()
 
+    artifact_rgba, artifact_overlay_rgba = build_artifact_rgba_images(
+        img_vis, artifact_filled, pred_mask
+    )
+
     return {
         'cropped':      img_vis,
         'mask':         mask_binary,
         'overlay':      blended,
         'gradcam':      gradcam_overlay,
+        'artifact_image': artifact_rgba,
+        'artifact_overlay_image': artifact_overlay_rgba,
         'labels':       labels,
         'damage_ratio': round(damage_ratio, 2),
         'severity':     severity,
@@ -881,6 +1018,46 @@ def get_gradcam(model, tensor, target_layer_name='encoder'):
     bh.remove()
 
     return cam
+
+
+def build_artifact_rgba_images(cropped_rgb, foreground_mask, pred_mask):
+    """
+    3D Preview용 투명 PNG.
+    - artifact_image: 유물 RGB + rembg/실루엣 alpha
+    - artifact_overlay_image: 손상 영역만 빨간 오버레이, 배경 투명
+    """
+    h, w = cropped_rgb.shape[:2]
+    if foreground_mask.shape[:2] != (h, w):
+        foreground_mask = cv2.resize(
+            foreground_mask, (w, h), interpolation=cv2.INTER_NEAREST
+        )
+
+    fg = np.clip(foreground_mask.astype(np.float32) / 255.0, 0, 1)
+    damage = np.clip(pred_mask.astype(np.float32), 0, 1)
+    damage = damage * fg
+
+    artifact_rgba = np.zeros((h, w, 4), dtype=np.uint8)
+    artifact_rgba[:, :, :3] = cropped_rgb
+    artifact_rgba[:, :, 3] = (fg * 255).astype(np.uint8)
+
+    overlay_rgba = artifact_rgba.astype(np.float32)
+    red = np.array([255.0, 0.0, 0.0], dtype=np.float32)
+    dmg = damage[..., None]
+    overlay_rgba[:, :, :3] = (
+        overlay_rgba[:, :, :3] * (1.0 - 0.9 * dmg) + red * (0.9 * dmg)
+    )
+    overlay_rgba[:, :, 3] = fg * 255.0
+    overlay_rgba = np.clip(overlay_rgba, 0, 255).astype(np.uint8)
+
+    return artifact_rgba, overlay_rgba
+
+
+def rgba_to_base64_png(rgba: np.ndarray) -> str:
+    """RGBA (H,W,4) RGB order → PNG base64."""
+    import base64
+    bgra = cv2.cvtColor(rgba, cv2.COLOR_RGBA2BGRA)
+    _, buffer = cv2.imencode('.png', bgra)
+    return base64.b64encode(buffer).decode('utf-8')
 
 
 def apply_gradcam_heatmap(img_rgb, cam):

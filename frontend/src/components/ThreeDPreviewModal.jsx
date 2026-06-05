@@ -3,16 +3,17 @@ import ArtifactViewer3D from './ArtifactViewer3D.jsx'
 import { DEFAULT_OVERLAY_STRENGTH } from '../api/api.js'
 
 const SHAPE_TABS = [
-  { id: 'sphere', label: '구형', hint: '도자기 / 항아리' },
-  { id: 'cylinder', label: '원통형', hint: '잔 / 컵' },
-  { id: 'plane', label: '평면', hint: '기와 / 거울 / 판' },
+  { id: 'sphere', label: 'Sphere', hint: '도자기, 항아리' },
+  { id: 'cylinder', label: 'Cylinder', hint: '컵, 잔' },
+  { id: 'plane', label: '평면', hint: '얇은 판 · 손상 미세 굴곡' },
 ]
 
 export default function ThreeDPreviewModal({
   open,
   onClose,
-  originalSrc,
-  overlaySrc,
+  artifactSrc,
+  artifactOverlaySrc,
+  maskSrc,
 }) {
   const [shapeType, setShapeType] = useState('sphere')
   const [overlayOpacity, setOverlayOpacity] = useState(DEFAULT_OVERLAY_STRENGTH)
@@ -33,7 +34,7 @@ export default function ThreeDPreviewModal({
 
   if (!open) return null
 
-  const canPreview = Boolean(originalSrc)
+  const canPreview = Boolean(artifactOverlaySrc)
 
   return (
     <div
@@ -56,7 +57,7 @@ export default function ThreeDPreviewModal({
               3D Damage Preview
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-forest-glow/90">
-              분석된 원본·손상 오버레이를 간단한 3D 유물 형태에 매핑한 시각화입니다.
+              배경 제거된 유물 텍스처(손상 오버레이 포함)를 3D 형태에 투영한 시각화입니다.
             </p>
           </div>
           <button
@@ -94,15 +95,16 @@ export default function ThreeDPreviewModal({
         <div className="min-h-[340px] flex-1 px-5 py-4 sm:px-6">
           {canPreview ? (
             <ArtifactViewer3D
-              originalSrc={originalSrc}
-              overlaySrc={overlaySrc}
+              artifactSrc={artifactSrc}
+              artifactOverlaySrc={artifactOverlaySrc}
+              maskSrc={maskSrc}
               shapeType={shapeType}
-              overlayOpacity={overlayOpacity}
+              overlayStrength={overlayOpacity}
               active={open}
             />
           ) : (
             <div className="flex h-full min-h-[320px] items-center justify-center rounded-xl border border-navy-border bg-navy-dark text-sm text-pure/60">
-              미리보기할 이미지가 없습니다.
+              artifact_overlay_image가 없습니다. 분석을 다시 실행해주세요.
             </div>
           )}
         </div>

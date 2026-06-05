@@ -7,10 +7,10 @@ import Footer from '../components/Footer.jsx'
 import {
   predict,
   parsePredictResult,
-  USE_MOCK_API,
   ApiError,
   DEFAULT_SEG_THRESHOLD,
   DEFAULT_MODEL_VARIANT,
+  DEFAULT_CROP_MODE,
 } from '../api/api.js'
 import InfoTooltip from '../components/InfoTooltip.jsx'
 import { HELP } from '../utils/featureHelp.js'
@@ -39,6 +39,7 @@ export default function Home() {
   const [sensitivity, setSensitivity] = useState(DEFAULT_SEG_THRESHOLD)
   const [useAutoCrop, setUseAutoCrop] = useState(true)
   const [modelVariant, setModelVariant] = useState(DEFAULT_MODEL_VARIANT)
+  const [cropMode, setCropMode] = useState(DEFAULT_CROP_MODE)
 
   const skipSensitivityEffect = useRef(true)
   const hasResult = useRef(false)
@@ -49,12 +50,12 @@ export default function Home() {
     }
   }, [previewUrl])
 
-  const runAnalysis = useCallback(async (file, segThreshold, autoCrop, variant) => {
+  const runAnalysis = useCallback(async (file, segThreshold, autoCrop, variant, crop) => {
     if (!file) return
     setLoading(true)
     setError('')
     try {
-      const data = await predict(file, segThreshold, autoCrop, variant)
+      const data = await predict(file, segThreshold, autoCrop, variant, crop)
       setResult(parsePredictResult(data))
       hasResult.current = true
     } catch (err) {
@@ -75,7 +76,7 @@ export default function Home() {
     setPreviewUrl(URL.createObjectURL(file))
     setUploadedFile(file)
 
-    await runAnalysis(file, sensitivity, useAutoCrop, modelVariant)
+    await runAnalysis(file, sensitivity, useAutoCrop, modelVariant, cropMode)
 
     skipSensitivityEffect.current = false
   }
@@ -90,9 +91,9 @@ export default function Home() {
 
       setSensitivity(value)
       setResult(null)
-      runAnalysis(uploadedFile, value, useAutoCrop, modelVariant)
+      runAnalysis(uploadedFile, value, useAutoCrop, modelVariant, cropMode)
     },
-    [uploadedFile, sensitivity, useAutoCrop, modelVariant, runAnalysis],
+    [uploadedFile, sensitivity, useAutoCrop, modelVariant, cropMode, runAnalysis],
   )
 
   const handleReset = () => {
@@ -105,6 +106,7 @@ export default function Home() {
     setSensitivity(DEFAULT_SEG_THRESHOLD)
     setUseAutoCrop(true)
     setModelVariant(DEFAULT_MODEL_VARIANT)
+    setCropMode(DEFAULT_CROP_MODE)
     hasResult.current = false
     skipSensitivityEffect.current = true
   }
@@ -119,30 +121,17 @@ export default function Home() {
 
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
         <section className="mb-14 text-center">
-          <div className="mb-8 flex justify-center">
+          <div className="mb-6 flex justify-center">
             <img
               src="/artifix-logo.png"
               alt="ArtiFix"
-              className="h-16 w-auto object-contain sm:h-20 md:h-24"
+              className="h-28 w-auto object-contain sm:h-36 md:h-44 lg:h-52"
             />
           </div>
-          <h1 className="font-display text-2xl font-semibold tracking-wide text-bronze-dark sm:text-3xl">
-            유물 표면 손상 자동 감지
-          </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-bronze-light">
+          <p className="mx-auto max-w-2xl text-base leading-relaxed text-bronze-light">
             ArtiFix는 유물·문화재 이미지에서 균열, 표면 손상, 변색을 자동으로 감지하고
             유형별 confidence를 제공하는 컴퓨터 비전 시스템입니다.
           </p>
-          <span
-            className={`mt-5 inline-flex items-center gap-1.5 rounded-full border px-4 py-1 text-xs font-medium tracking-wide ${
-              USE_MOCK_API
-                ? 'border-amber-300/50 bg-amber-50 text-amber-800'
-                : 'border-bronze/25 bg-bronze-muted text-bronze'
-            }`}
-          >
-            {USE_MOCK_API ? 'Mock API' : 'Live API · localhost:8000'}
-            <InfoTooltip content={HELP.apiMode} placement="bottom" />
-          </span>
         </section>
 
         <section className="mb-10">
@@ -151,6 +140,8 @@ export default function Home() {
               <UploadOptions
                 useAutoCrop={useAutoCrop}
                 onUseAutoCropChange={setUseAutoCrop}
+                cropMode={cropMode}
+                onCropModeChange={setCropMode}
                 modelVariant={modelVariant}
                 onModelVariantChange={setModelVariant}
                 disabled={loading}
@@ -204,6 +195,7 @@ export default function Home() {
               sensitivity={sensitivity}
               onSensitivityCommit={handleSensitivityCommit}
               useAutoCrop={useAutoCrop}
+              cropMode={cropMode}
               modelVariant={modelVariant}
               analyzing={false}
             />

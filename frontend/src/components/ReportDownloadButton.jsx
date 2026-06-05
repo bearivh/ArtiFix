@@ -10,6 +10,7 @@ export default function ReportDownloadButton({
   imageFile,
   useAutoCrop = true,
   modelVariant,
+  cropMode,
   disabled = false,
 }) {
   const [loading, setLoading] = useState(false)
@@ -20,7 +21,7 @@ export default function ReportDownloadButton({
     setError('')
     setLoading(true)
     try {
-      const blob = await downloadReport(imageFile, useAutoCrop, modelVariant)
+      const blob = await downloadReport(imageFile, useAutoCrop, modelVariant, cropMode)
       triggerPdfDownload(blob, 'artifix_report.pdf')
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)

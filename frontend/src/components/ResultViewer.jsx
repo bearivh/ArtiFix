@@ -57,6 +57,7 @@ export default function ResultViewer({
   sensitivity,
   onSensitivityCommit,
   useAutoCrop = true,
+  cropMode,
   modelVariant,
   analyzing = false,
 }) {
@@ -71,6 +72,8 @@ export default function ResultViewer({
     overlaySrc,
     maskSrc,
     gradcamSrc,
+    artifactSrc,
+    artifactOverlaySrc,
     labels,
     damageRatio,
     severity,
@@ -167,47 +170,12 @@ export default function ResultViewer({
         </div>
       </div>
 
-      <div className="card-panel flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-bronze-dark">
-            <LabelWithHelp help={HELP.pdfReport}>분석 보고서 (PDF)</LabelWithHelp>
-          </h3>
-          <p className="mt-1 text-xs text-bronze-light">
-            손상 요약, 분석 이미지, 영역 상세가 포함된 공식 보고서를 다운로드합니다.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <ReportDownloadButton
-            imageFile={imageFile}
-            useAutoCrop={useAutoCrop}
-            modelVariant={resultModelVariant ?? modelVariant}
-            disabled={analyzing}
-          />
-          <button
-            type="button"
-            onClick={() => setShow3DPreview(true)}
-            disabled={!originalSrc || analyzing}
-            title="3D Damage Preview"
-            className="inline-flex items-center justify-center gap-2 rounded-lg border border-forest-dark bg-navy-card px-5 py-2.5 text-sm font-medium text-pure transition hover:border-forest-glow hover:bg-forest-dark disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 10h.01M15 10h.01M12 14v.01" />
-            </svg>
-            3D Preview
-          </button>
-        </div>
-      </div>
-
       <ThreeDPreviewModal
         open={show3DPreview}
         onClose={() => setShow3DPreview(false)}
-        originalSrc={originalSrc}
-        overlaySrc={overlaySrc}
+        artifactSrc={artifactSrc}
+        artifactOverlaySrc={artifactOverlaySrc}
+        maskSrc={maskSrc}
       />
 
       <AnalysisControls
@@ -324,32 +292,66 @@ export default function ResultViewer({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="card-panel p-4">
+      <div className="card-panel flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-bronze-dark">
+            <LabelWithHelp help={HELP.pdfReport}>분석 보고서 (PDF)</LabelWithHelp>
+          </h3>
+          <p className="mt-1 text-xs text-bronze-light">
+            손상 요약, 분석 이미지, 영역 상세가 포함된 공식 보고서를 다운로드합니다.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <ReportDownloadButton
+            imageFile={imageFile}
+            useAutoCrop={useAutoCrop}
+            modelVariant={resultModelVariant ?? modelVariant}
+            cropMode={cropMode}
+            disabled={analyzing}
+          />
+          <button
+            type="button"
+            onClick={() => setShow3DPreview(true)}
+            disabled={!artifactOverlaySrc || analyzing}
+            title="3D Damage Preview"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-forest-dark bg-navy-card px-5 py-2.5 text-sm font-medium text-pure transition hover:border-forest-glow hover:bg-forest-dark disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 10h.01M15 10h.01M12 14v.01" />
+            </svg>
+            3D Preview
+          </button>
+        </div>
+      </div>
+
+      <div className="card-panel p-6">
+        <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-bronze-light">
+          <LabelWithHelp help={HELP.downloadOriginal}>분석 이미지 저장</LabelWithHelp>
+        </h3>
+        <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
           <DownloadButton
             dataUrl={originalSrc}
             filename="artifix-original.png"
             label="원본 저장"
             help={HELP.downloadOriginal}
           />
-        </div>
-        <div className="card-panel p-4">
           <DownloadButton
             dataUrl={maskSrc}
             filename="artifix-mask.png"
             label="마스크 저장"
             help={HELP.downloadMask}
           />
-        </div>
-        <div className="card-panel p-4">
           <DownloadButton
             dataUrl={composedSrc || overlaySrc}
             filename="artifix-overlay.png"
             label="오버레이 저장"
             help={HELP.downloadOverlay}
           />
-        </div>
-        <div className="card-panel p-4">
           <DownloadButton
             dataUrl={gradcamSrc}
             filename="artifix-gradcam.png"

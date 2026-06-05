@@ -5,6 +5,8 @@ export const HELP = {
     '파인튜닝 전(best_model.pt)과 파인튜닝 후(best_finetuned.pt) 중 분할·분류에 사용할 가중치를 선택합니다. 업로드 전에 고르며, 해당 분석 세션 동안 동일 모델이 적용됩니다.',
   autoCrop:
     '유물이 화면 중앙에 오도록 이미지를 자동으로 잘라 모델 입력 크기에 맞춥니다. 해제하면 업로드한 원본 전체를 그대로 분석합니다.',
+  cropMode:
+    'AI Background Removal은 rembg로 박물관 배경·그림자를 제거한 뒤 유물 bbox로 crop합니다. Legacy Crop은 기존 HSV·Otsu 방식입니다. crop이 너무 작으면 원본을 사용합니다.',
   imageUpload:
     'JPG·PNG 유물 표면 사진을 드래그하거나 클릭해 업로드합니다. 업로드 즉시 서버에서 손상 분할·분류 추론이 실행됩니다.',
   apiMode:
@@ -22,7 +24,7 @@ export const HELP = {
   pdfReport:
     '손상 요약, 분석 이미지, 영역 상세가 담긴 PDF 보고서를 생성해 다운로드합니다. Live API에서만 사용할 수 있습니다.',
   threeDPreview:
-    '3D Damage Preview: 분석된 원본·손상 오버레이를 구형·원통형·평면 3D 형태에 매핑해 회전하며 확인합니다. 실제 3D 스캔·복원이 아닌 시각화입니다.',
+    '3D Damage Preview: 배경 제거된 유물(artifact_overlay_image)을 구형·원통형·평면에 투영해 회전하며 확인합니다. 실제 3D 스캔·복원이 아닌 2D 결과의 3D 시각화입니다.',
 
   analysisControls:
     'Detection Sensitivity와 Overlay Strength로 분석·표시 방식을 조절합니다. 민감도 변경 시 서버에서 재분석합니다.',

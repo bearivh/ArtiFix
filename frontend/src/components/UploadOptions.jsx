@@ -1,15 +1,18 @@
 import { LabelWithHelp } from './InfoTooltip.jsx'
 import { HELP } from '../utils/featureHelp.js'
-import { MODEL_VARIANTS } from '../api/api.js'
+import { MODEL_VARIANTS, CROP_MODES } from '../api/api.js'
 
 export default function UploadOptions({
   useAutoCrop,
   onUseAutoCropChange,
+  cropMode,
+  onCropModeChange,
   modelVariant,
   onModelVariantChange,
   disabled = false,
 }) {
   const variants = Object.values(MODEL_VARIANTS)
+  const cropModes = Object.values(CROP_MODES)
 
   return (
     <div className="card-panel mb-4 space-y-4 p-5">
@@ -69,6 +72,39 @@ export default function UploadOptions({
           </p>
         </div>
       </label>
+
+      {useAutoCrop && (
+        <fieldset disabled={disabled} className="space-y-2">
+          <legend className="mb-2 text-sm font-medium text-bronze-dark">
+            <LabelWithHelp help={HELP.cropMode}>Crop Mode</LabelWithHelp>
+          </legend>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {cropModes.map((mode) => (
+              <label
+                key={mode.id}
+                className={`flex cursor-pointer flex-col rounded-lg border px-4 py-3 transition ${
+                  cropMode === mode.id
+                    ? 'border-bronze/40 bg-bronze-muted'
+                    : 'border-bronze/15 bg-ivory-warm hover:border-bronze/25'
+                } ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
+              >
+                <span className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="crop_mode"
+                    value={mode.id}
+                    checked={cropMode === mode.id}
+                    onChange={() => onCropModeChange(mode.id)}
+                    className="accent-bronze"
+                  />
+                  <span className="text-sm font-medium text-bronze-dark">{mode.label}</span>
+                </span>
+                <span className="mt-1 pl-6 text-xs text-bronze-light/80">{mode.description}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
     </div>
   )
 }

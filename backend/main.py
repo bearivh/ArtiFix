@@ -8,16 +8,23 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from inference import load_model, predict
+from inference import load_model, predict, rgba_to_base64_png
 from report import generate_report
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=['*'],
+    allow_origins=[
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:4173',
+        'http://127.0.0.1:4173',
+    ],
+    allow_credentials=False,
     allow_methods=['*'],
     allow_headers=['*'],
+    expose_headers=['*'],
 )
 
 _WEIGHTS_DIR = Path(__file__).resolve().parent / 'weights'
@@ -53,18 +60,27 @@ def _parse_model_variant(value: Optional[str]) -> str:
     return v if v in MODELS else DEFAULT_MODEL_VARIANT
 
 
+DEFAULT_CROP_MODE = 'rembg'
+
+
+def _parse_crop_mode(value: Optional[str]) -> str:
+    v = (value or DEFAULT_CROP_MODE).strip().lower()
+    return v if v in ('rembg', 'legacy') else DEFAULT_CROP_MODE
+
+
 @app.post('/predict')
 async def predict_endpoint(
     image: UploadFile = File(...),
-    seg_threshold: float = Form(0.10),
+    seg_threshold: float = Form(0.25),
     use_auto_crop: str = Form('true'),
     model_variant: str = Form(DEFAULT_MODEL_VARIANT),
+    crop_mode: str = Form(DEFAULT_CROP_MODE),
 ):
     contents = await image.read()
     nparr = np.frombuffer(contents, np.uint8)
     img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    seg_threshold = float(max(0.05, min(0.30, seg_threshold)))
+    seg_threshold = float(max(0.05, min(0.60, seg_threshold)))
     variant = _parse_model_variant(model_variant)
     model = MODELS[variant]
 
@@ -73,6 +89,7 @@ async def predict_endpoint(
         img_bgr,
         seg_threshold=seg_threshold,
         use_auto_crop=_parse_bool_form(use_auto_crop, default=True),
+        crop_mode=_parse_crop_mode(crop_mode),
     )
 
     mask_vis = result['mask']
@@ -81,8 +98,10 @@ async def predict_endpoint(
 
     return {
         'original_image': numpy_to_base64(result['cropped']),
-        'mask_image': numpy_to_base64(mask_vis),
+        'artifact_image': rgba_to_base64_png(result['artifact_image']),
+        'mask_image': numpy_to_base64(result['mask']),
         'overlay_image': numpy_to_base64(result['overlay']),
+        'artifact_overlay_image': rgba_to_base64_png(result['artifact_overlay_image']),
         'gradcam_image': numpy_to_base64(result['gradcam']),
         'labels': result['labels'],
         'damage_ratio': result['damage_ratio'],
@@ -101,6 +120,7 @@ async def generate_report_endpoint(
     image: UploadFile = File(...),
     use_auto_crop: str = Form('true'),
     model_variant: str = Form(DEFAULT_MODEL_VARIANT),
+    crop_mode: str = Form(DEFAULT_CROP_MODE),
 ):
     contents = await image.read()
     nparr = np.frombuffer(contents, np.uint8)
@@ -113,6 +133,7 @@ async def generate_report_endpoint(
         model,
         img_bgr,
         use_auto_crop=_parse_bool_form(use_auto_crop, default=True),
+        crop_mode=_parse_crop_mode(crop_mode),
     )
 
     mask_vis = result['mask']
@@ -139,4 +160,6 @@ def health():
         'status': 'ok',
         'models': list(MODELS.keys()),
         'default_model_variant': DEFAULT_MODEL_VARIANT,
+        'crop_modes': ['rembg', 'legacy'],
+        'default_crop_mode': DEFAULT_CROP_MODE,
     }

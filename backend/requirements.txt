@@ -7,5 +7,6 @@ opencv-python
 albumentations
 numpy
 pillow
+rembg[cpu]
 python-multipart
 reportlab
