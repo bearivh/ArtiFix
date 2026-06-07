@@ -163,9 +163,6 @@ Segmentation은 **손상 픽셀 전체**를 하나의 마스크로 찾고, Class
 
 #### 탭별 시각화
 
-<details>
-<summary><strong>인터랙티브 · Grad-CAM · 전후 비교 · 전체 보기</strong></summary>
-
 | 인터랙티브 캔버스 | 줌 모달 |
 |:---:|:---:|
 | ![인터랙티브 분석](docs/인터랙티브분석.png) | ![줌](docs/줌.png) |
@@ -185,8 +182,6 @@ Segmentation은 **손상 픽셀 전체**를 하나의 마스크로 찾고, Class
 ![전체 보기](docs/전체보기.png)
 
 원본·마스크·오버레이·Grad-CAM을 갤러리 형태로 표시합니다. 각 이미지를 개별 PNG로 저장할 수 있습니다.
-
-</details>
 
 #### 손상 유형 · Confidence
 
