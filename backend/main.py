@@ -29,8 +29,8 @@ app.add_middleware(
 
 _WEIGHTS_DIR = Path(__file__).resolve().parent / 'weights'
 MODEL_PATHS = {
-    'base': _WEIGHTS_DIR / 'best_model.pt',
-    'finetuned': _WEIGHTS_DIR / 'best_finetuned.pt',
+    'base': _WEIGHTS_DIR / 'best_model2.pt',
+    'finetuned': _WEIGHTS_DIR / 'best_finetuned3.pt',
 }
 DEFAULT_MODEL_VARIANT = 'finetuned'
 

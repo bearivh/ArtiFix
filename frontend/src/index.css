@@ -19,7 +19,7 @@
   }
 
   .btn-bronze {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-bronze-light bg-pure px-5 py-2.5 text-sm font-medium text-bronze-dark transition hover:border-bronze-glow hover:bg-bronze-subtle hover:shadow-bronze disabled:cursor-not-allowed disabled:opacity-40;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-bronze-light bg-pure px-5 py-2.5 text-sm font-medium text-bronze-dark transition hover:border-bronze-glow hover:bg-bronze-subtle disabled:cursor-not-allowed disabled:opacity-40;
   }
 
   .btn-bronze-solid {

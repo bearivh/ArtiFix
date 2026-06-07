@@ -5,10 +5,11 @@ import AnalysisControls from './AnalysisControls.jsx'
 import InteractiveCanvas from './InteractiveCanvas.jsx'
 import RegionInspector from './RegionInspector.jsx'
 import CompareSlider from './CompareSlider.jsx'
-import DownloadButton from './DownloadButton.jsx'
 import ReportDownloadButton from './ReportDownloadButton.jsx'
 import GradCamPanel from './GradCamPanel.jsx'
 import ThreeDPreviewModal from './ThreeDPreviewModal.jsx'
+import ZoomModal from './ZoomModal.jsx'
+import ConfidenceChart from './ConfidenceChart.jsx'
 import {
   getPrimaryDamageType,
   filterBboxesForDisplay,
@@ -28,12 +29,36 @@ const TABS = [
   { id: 'gallery', label: '전체 보기', help: HELP.tabGallery },
 ]
 
-function ImagePanel({ title, src, alt, help }) {
+function ImagePanel({ title, src, alt, help, downloadSrc, downloadFilename }) {
+  const handleDownload = () => {
+    if (!downloadSrc) return
+    const link = document.createElement('a')
+    link.href = downloadSrc
+    link.download = downloadFilename || 'artifix-image.png'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="card-panel flex flex-col p-4">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-bronze-light">
-        {help ? <LabelWithHelp help={help}>{title}</LabelWithHelp> : title}
-      </h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-widest text-bronze-light">
+          {help ? <LabelWithHelp help={help}>{title}</LabelWithHelp> : title}
+        </h3>
+        {downloadSrc && (
+          <button
+            type="button"
+            onClick={handleDownload}
+            title={`${title} 저장`}
+            className="rounded-md p-1 text-bronze-light/60 transition hover:bg-bronze-subtle hover:text-bronze-dark"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
+        )}
+      </div>
       <div className="flex min-h-[200px] w-full items-center justify-center overflow-hidden rounded-xl border border-bronze/10 bg-ivory-warm">
         {src ? (
           <img
@@ -66,6 +91,7 @@ export default function ResultViewer({
   const [selectedBboxIndex, setSelectedBboxIndex] = useState(-1)
   const [composedSrc, setComposedSrc] = useState('')
   const [show3DPreview, setShow3DPreview] = useState(false)
+  const [showZoom, setShowZoom] = useState(false)
 
   const {
     originalSrc,
@@ -178,6 +204,14 @@ export default function ResultViewer({
         maskSrc={maskSrc}
       />
 
+      <ZoomModal
+        open={showZoom}
+        onClose={() => setShowZoom(false)}
+        originalSrc={originalSrc}
+        bbox={selectedBbox}
+        regionIndex={selectedBboxIndex}
+      />
+
       <AnalysisControls
         sensitivity={sensitivity}
         onSensitivityCommit={onSensitivityCommit}
@@ -231,6 +265,7 @@ export default function ResultViewer({
               labels={labels}
               imageWidth={imageWidth}
               imageHeight={imageHeight}
+              onZoom={selectedBbox ? () => setShowZoom(true) : null}
             />
           </div>
         </div>
@@ -260,19 +295,21 @@ export default function ResultViewer({
 
       {activeTab === 'gallery' && (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          <ImagePanel title="원본 (Original)" src={originalSrc} alt="원본" help={HELP.galleryOriginal} />
-          <ImagePanel title="마스크 (Mask)" src={maskSrc} alt="마스크" help={HELP.galleryMask} />
           <ImagePanel
-            title="합성 오버레이"
-            src={composedSrc || overlaySrc}
-            alt="오버레이"
-            help={HELP.galleryOverlay}
+            title="원본 (Original)" src={originalSrc} alt="원본" help={HELP.galleryOriginal}
+            downloadSrc={originalSrc} downloadFilename="artifix-original.png"
           />
           <ImagePanel
-            title="Grad-CAM"
-            src={gradcamSrc}
-            alt="Grad-CAM"
-            help={HELP.galleryGradcam}
+            title="마스크 (Mask)" src={maskSrc} alt="마스크" help={HELP.galleryMask}
+            downloadSrc={maskSrc} downloadFilename="artifix-mask.png"
+          />
+          <ImagePanel
+            title="합성 오버레이" src={composedSrc || overlaySrc} alt="오버레이" help={HELP.galleryOverlay}
+            downloadSrc={composedSrc || overlaySrc} downloadFilename="artifix-overlay.png"
+          />
+          <ImagePanel
+            title="Grad-CAM" src={gradcamSrc} alt="Grad-CAM" help={HELP.galleryGradcam}
+            downloadSrc={gradcamSrc} downloadFilename="artifix-gradcam.png"
           />
         </div>
       )}
@@ -289,6 +326,7 @@ export default function ResultViewer({
               <DamageTypeBadge key={type} type={type} confidence={confidence} />
             ))}
           </div>
+          <ConfidenceChart labels={labels} />
         </div>
       )}
 
@@ -329,37 +367,6 @@ export default function ResultViewer({
         </div>
       </div>
 
-      <div className="card-panel p-6">
-        <h3 className="mb-4 text-xs font-semibold uppercase tracking-widest text-bronze-light">
-          <LabelWithHelp help={HELP.downloadOriginal}>분석 이미지 저장</LabelWithHelp>
-        </h3>
-        <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
-          <DownloadButton
-            dataUrl={originalSrc}
-            filename="artifix-original.png"
-            label="원본 저장"
-            help={HELP.downloadOriginal}
-          />
-          <DownloadButton
-            dataUrl={maskSrc}
-            filename="artifix-mask.png"
-            label="마스크 저장"
-            help={HELP.downloadMask}
-          />
-          <DownloadButton
-            dataUrl={composedSrc || overlaySrc}
-            filename="artifix-overlay.png"
-            label="오버레이 저장"
-            help={HELP.downloadOverlay}
-          />
-          <DownloadButton
-            dataUrl={gradcamSrc}
-            filename="artifix-gradcam.png"
-            label="Grad-CAM 저장"
-            help={HELP.downloadGradcam}
-          />
-        </div>
-      </div>
     </div>
   )
 }

@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+
+function ChevronDown({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+  )
+}
 import ImageUploader from '../components/ImageUploader.jsx'
 import UploadOptions from '../components/UploadOptions.jsx'
 import ResultViewer from '../components/ResultViewer.jsx'
 import Header from '../components/Header.jsx'
 import Footer from '../components/Footer.jsx'
+import HistoryPanel from '../components/HistoryPanel.jsx'
+import CameraModal from '../components/CameraModal.jsx'
+import { useLocalStorage } from '../utils/useLocalStorage.js'
 import {
   predict,
   parsePredictResult,
@@ -36,13 +47,38 @@ export default function Home() {
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [sensitivity, setSensitivity] = useState(DEFAULT_SEG_THRESHOLD)
+  const [sensitivity, setSensitivity] = useLocalStorage('artifix_sensitivity', DEFAULT_SEG_THRESHOLD)
   const [useAutoCrop, setUseAutoCrop] = useState(true)
-  const [modelVariant, setModelVariant] = useState(DEFAULT_MODEL_VARIANT)
-  const [cropMode, setCropMode] = useState(DEFAULT_CROP_MODE)
+  const [modelVariant, setModelVariant] = useLocalStorage('artifix_model_variant', DEFAULT_MODEL_VARIANT)
+  const [cropMode, setCropMode] = useLocalStorage('artifix_crop_mode', DEFAULT_CROP_MODE)
+  const [history, setHistory] = useState([])
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [showAnalysis, setShowAnalysis] = useState(false)
 
+  const analysisSectionRef = useRef(null)
   const skipSensitivityEffect = useRef(true)
   const hasResult = useRef(false)
+
+  // 분석하기 클릭 → 섹션 표시 후 smooth scroll
+  const handleShowAnalysis = () => setShowAnalysis(true)
+
+  useEffect(() => {
+    if (!showAnalysis) return undefined
+    // 두 번의 rAF: 첫 번째는 DOM 커밋, 두 번째는 레이아웃·페인트 완료 후 스크롤
+    let id1, id2
+    id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
+        const el = analysisSectionRef.current
+        if (!el) return
+        const y = el.getBoundingClientRect().top + window.scrollY - 57
+        window.scrollTo({ top: y, behavior: 'smooth' })
+      })
+    })
+    return () => {
+      cancelAnimationFrame(id1)
+      cancelAnimationFrame(id2)
+    }
+  }, [showAnalysis])
 
   useEffect(() => {
     return () => {
@@ -50,14 +86,21 @@ export default function Home() {
     }
   }, [previewUrl])
 
+  const MAX_HISTORY = 10
+
   const runAnalysis = useCallback(async (file, segThreshold, autoCrop, variant, crop) => {
     if (!file) return
     setLoading(true)
     setError('')
     try {
       const data = await predict(file, segThreshold, autoCrop, variant, crop)
-      setResult(parsePredictResult(data))
+      const parsed = parsePredictResult(data)
+      setResult(parsed)
       hasResult.current = true
+      setHistory((prev) => {
+        const entry = { id: Date.now(), filename: file.name, result: parsed, timestamp: Date.now() }
+        return [entry, ...prev].slice(0, MAX_HISTORY)
+      })
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)
       else if (err instanceof Error) setError(err.message)
@@ -105,10 +148,27 @@ export default function Home() {
     setLoading(false)
     setSensitivity(DEFAULT_SEG_THRESHOLD)
     setUseAutoCrop(true)
-    setModelVariant(DEFAULT_MODEL_VARIANT)
-    setCropMode(DEFAULT_CROP_MODE)
     hasResult.current = false
     skipSensitivityEffect.current = true
+  }
+
+  const handleHistoryRestore = (item) => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
+    setUploadedFile(null)
+    setResult(item.result)
+    setError('')
+    setLoading(false)
+    hasResult.current = false
+    skipSensitivityEffect.current = true
+  }
+
+  const handleHistoryRemove = (id) => {
+    setHistory((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const handleHistoryClearAll = () => {
+    setHistory([])
   }
 
   const loadingMessage = hasResult.current
@@ -116,24 +176,48 @@ export default function Home() {
     : '손상 영역을 분석하는 중...'
 
   return (
-    <div className="min-h-screen">
+    <div className="flex min-h-screen flex-col">
       <Header />
 
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-16">
-        <section className="mb-14 text-center">
-          <div className="mb-6 flex justify-center">
-            <img
-              src="/artifix-logo.png"
-              alt="ArtiFix"
-              className="h-28 w-auto object-contain sm:h-36 md:h-44 lg:h-52"
-            />
-          </div>
-          <p className="mx-auto max-w-2xl text-base leading-relaxed text-bronze-light">
-            ArtiFix는 유물·문화재 이미지에서 균열, 표면 손상, 변색을 자동으로 감지하고
-            유형별 confidence를 제공하는 컴퓨터 비전 시스템입니다.
-          </p>
-        </section>
+      {/* ── Hero 섹션 ── */}
+      <section
+        className={`flex flex-col items-center justify-center px-4 text-center ${
+          showAnalysis ? 'py-16 sm:py-20' : 'flex-1'
+        }`}
+      >
+        <div className="mb-6 flex justify-center">
+          <img
+            src="/Artifix.png"
+            alt="ArtiFix"
+            className="h-28 w-auto object-contain sm:h-36 md:h-44 lg:h-52"
+          />
+        </div>
+        <p className="mx-auto max-w-2xl text-base leading-relaxed text-bronze-light">
+          ArtiFix는 유물·문화재 이미지에서 균열, 표면 손상, 변색을 자동으로 감지하고<br />
+          유형별 confidence를 제공하는 컴퓨터 비전 시스템입니다.
+        </p>
 
+        {!showAnalysis && (
+          <div className="mt-10 flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={handleShowAnalysis}
+              className="btn-bronze px-10 py-3 text-base"
+            >
+              분석하기
+            </button>
+            <ChevronDown className="h-6 w-6 animate-bounce text-bronze-light/50" />
+          </div>
+        )}
+      </section>
+
+      {/* ── 분석 섹션 (분석하기 클릭 후 표시) ── */}
+      {showAnalysis && (
+      <main
+        ref={analysisSectionRef}
+        className="mx-auto w-full max-w-6xl px-4 pb-10 pt-4 sm:px-6 sm:pb-16 sm:pt-6"
+        style={{ scrollMarginTop: '57px', minHeight: 'calc(100vh - 57px)' }}
+      >
         <section className="mb-10">
           {!uploadedFile && (
             <>
@@ -144,9 +228,32 @@ export default function Home() {
                 onCropModeChange={setCropMode}
                 modelVariant={modelVariant}
                 onModelVariantChange={setModelVariant}
+                sensitivity={sensitivity}
+                onSensitivityChange={setSensitivity}
                 disabled={loading}
               />
-              <ImageUploader onUpload={handleUpload} disabled={loading} />
+              <div className="flex items-stretch gap-3">
+                <div className="min-w-0 flex-1">
+                  <ImageUploader onUpload={handleUpload} disabled={loading} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCameraOpen(true)}
+                  disabled={loading}
+                  className="flex w-28 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-bronze/20 bg-ivory-warm px-3 text-xs text-bronze-light transition hover:border-bronze/40 hover:bg-bronze-subtle hover:text-bronze-dark disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span className="text-center leading-snug">카메라로<br />촬영</span>
+                </button>
+              </div>
+              <CameraModal
+                open={cameraOpen}
+                onClose={() => setCameraOpen(false)}
+                onCapture={handleUpload}
+              />
             </>
           )}
 
@@ -201,7 +308,19 @@ export default function Home() {
             />
           </section>
         )}
+
+        {history.length > 0 && (
+          <section className="mt-14">
+            <HistoryPanel
+              history={history}
+              onRestore={handleHistoryRestore}
+              onRemove={handleHistoryRemove}
+              onClearAll={handleHistoryClearAll}
+            />
+          </section>
+        )}
       </main>
+      )}
 
       <Footer />
     </div>

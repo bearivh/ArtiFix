@@ -12,6 +12,7 @@ export default function RegionInspector({
   labels,
   imageWidth = 256,
   imageHeight = 256,
+  onZoom,
 }) {
   if (!bbox || regionIndex < 0) {
     return (
@@ -66,6 +67,20 @@ export default function RegionInspector({
           {' '}x:{bbox.x} y:{bbox.y} w:{bbox.w} h:{bbox.h}
         </div>
       </dl>
+
+      {onZoom && (
+        <button
+          type="button"
+          onClick={onZoom}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-bronze/25 bg-bronze-subtle px-4 py-2 text-sm font-medium text-bronze-dark transition hover:border-bronze/50 hover:bg-bronze-muted"
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 8v6M8 11h6" />
+          </svg>
+          확대 보기 (3×)
+        </button>
+      )}
     </div>
   )
 }

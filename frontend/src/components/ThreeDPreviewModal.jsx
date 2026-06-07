@@ -8,6 +8,11 @@ const SHAPE_TABS = [
   { id: 'plane', label: '평면', hint: '얇은 판 · 손상 미세 굴곡' },
 ]
 
+const VIEW_MODE_TABS = [
+  { id: 'photo', label: '사진 모드', hint: 'Overlay 텍스처' },
+  { id: 'heatmap', label: '히트맵 모드', hint: '손상 분포 시각화' },
+]
+
 export default function ThreeDPreviewModal({
   open,
   onClose,
@@ -17,6 +22,7 @@ export default function ThreeDPreviewModal({
 }) {
   const [shapeType, setShapeType] = useState('sphere')
   const [overlayOpacity, setOverlayOpacity] = useState(DEFAULT_OVERLAY_STRENGTH)
+  const [viewMode, setViewMode] = useState('photo')
 
   useEffect(() => {
     if (!open) return undefined
@@ -35,6 +41,7 @@ export default function ThreeDPreviewModal({
   if (!open) return null
 
   const canPreview = Boolean(artifactOverlaySrc)
+  const isHeatmap = viewMode === 'heatmap'
 
   return (
     <div
@@ -69,6 +76,31 @@ export default function ThreeDPreviewModal({
           </button>
         </header>
 
+        {/* 보기 모드 토글 */}
+        <div className="border-b border-navy-border px-5 py-3 sm:px-6">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-forest-glow/80">
+            보기 모드
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {VIEW_MODE_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setViewMode(tab.id)}
+                className={`rounded-lg border px-4 py-2 text-left transition ${
+                  viewMode === tab.id
+                    ? 'border-forest-glow bg-forest-dark text-pure'
+                    : 'border-navy-border bg-navy-dark text-pure/80 hover:border-forest-light'
+                }`}
+              >
+                <span className="block text-sm font-medium">{tab.label}</span>
+                <span className="block text-xs opacity-75">{tab.hint}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 유물 형태 선택 */}
         <div className="border-b border-navy-border px-5 py-3 sm:px-6">
           <p className="mb-2 text-xs font-semibold uppercase tracking-widest text-forest-glow/80">
             유물 형태
@@ -100,6 +132,7 @@ export default function ThreeDPreviewModal({
               maskSrc={maskSrc}
               shapeType={shapeType}
               overlayStrength={overlayOpacity}
+              viewMode={viewMode}
               active={open}
             />
           ) : (
@@ -110,9 +143,11 @@ export default function ThreeDPreviewModal({
         </div>
 
         <footer className="space-y-2 border-t border-navy-border px-5 py-4 sm:px-6">
-          <div className="flex items-center justify-between text-sm text-pure/90">
-            <span>Overlay Strength</span>
-            <span className="tabular-nums text-forest-glow">{overlayOpacity.toFixed(1)}</span>
+          <div className="flex items-center justify-between text-sm">
+            <span className={isHeatmap ? 'text-pure/40' : 'text-pure/90'}>Overlay Strength</span>
+            <span className={`tabular-nums ${isHeatmap ? 'text-forest-glow/40' : 'text-forest-glow'}`}>
+              {isHeatmap ? '—' : overlayOpacity.toFixed(1)}
+            </span>
           </div>
           <input
             type="range"
@@ -120,8 +155,11 @@ export default function ThreeDPreviewModal({
             max={1}
             step={0.1}
             value={overlayOpacity}
+            disabled={isHeatmap}
             onChange={(e) => setOverlayOpacity(Number(e.target.value))}
-            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-navy-border accent-forest-glow"
+            className={`h-2 w-full appearance-none rounded-lg bg-navy-border accent-forest-glow transition ${
+              isHeatmap ? 'cursor-not-allowed opacity-30' : 'cursor-pointer'
+            }`}
           />
           <div className="flex justify-between text-xs text-pure/50">
             <span>0.1</span>
