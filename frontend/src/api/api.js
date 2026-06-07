@@ -257,6 +257,7 @@ export function getModelVariantLabel(variant) {
  */
 export async function downloadReport(
   imageFile,
+  segThreshold = DEFAULT_SEG_THRESHOLD,
   useAutoCrop = true,
   modelVariant = DEFAULT_MODEL_VARIANT,
   cropMode = DEFAULT_CROP_MODE,
@@ -272,6 +273,7 @@ export async function downloadReport(
 
   const formData = new FormData()
   formData.append('image', imageFile)
+  formData.append('seg_threshold', String(segThreshold))
   formData.append('use_auto_crop', useAutoCrop ? 'true' : 'false')
   formData.append('model_variant', modelVariant)
   formData.append('crop_mode', cropMode)

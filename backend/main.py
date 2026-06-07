@@ -118,6 +118,7 @@ async def predict_endpoint(
 @app.post('/report')
 async def generate_report_endpoint(
     image: UploadFile = File(...),
+    seg_threshold: float = Form(0.25),
     use_auto_crop: str = Form('true'),
     model_variant: str = Form(DEFAULT_MODEL_VARIANT),
     crop_mode: str = Form(DEFAULT_CROP_MODE),
@@ -126,12 +127,14 @@ async def generate_report_endpoint(
     nparr = np.frombuffer(contents, np.uint8)
     img_bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
+    seg_threshold = float(max(0.05, min(0.60, seg_threshold)))
     variant = _parse_model_variant(model_variant)
     model = MODELS[variant]
 
     result = predict(
         model,
         img_bgr,
+        seg_threshold=seg_threshold,
         use_auto_crop=_parse_bool_form(use_auto_crop, default=True),
         crop_mode=_parse_crop_mode(crop_mode),
     )

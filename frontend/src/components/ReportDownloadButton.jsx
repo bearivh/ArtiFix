@@ -8,6 +8,7 @@ import {
 
 export default function ReportDownloadButton({
   imageFile,
+  sensitivity,
   useAutoCrop = true,
   modelVariant,
   cropMode,
@@ -21,7 +22,13 @@ export default function ReportDownloadButton({
     setError('')
     setLoading(true)
     try {
-      const blob = await downloadReport(imageFile, useAutoCrop, modelVariant, cropMode)
+      const blob = await downloadReport(
+        imageFile,
+        sensitivity,
+        useAutoCrop,
+        modelVariant,
+        cropMode,
+      )
       triggerPdfDownload(blob, 'artifix_report.pdf')
     } catch (err) {
       if (err instanceof ApiError) setError(err.message)
@@ -35,12 +42,12 @@ export default function ReportDownloadButton({
   const isDisabled = disabled || !imageFile || loading || USE_MOCK_API
 
   return (
-    <div className="w-full">
+    <div className="flex shrink-0 flex-col items-stretch sm:items-end">
       <button
         type="button"
         onClick={handleDownload}
         disabled={isDisabled}
-        className="btn-bronze-solid w-full sm:w-auto"
+        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-bronze bg-bronze px-5 py-2.5 text-sm font-medium text-pure transition hover:border-bronze-dark hover:bg-bronze-dark disabled:cursor-not-allowed disabled:opacity-40"
       >
         {loading ? (
           <>
