@@ -1,5 +1,9 @@
 <div align="center">
   <img src="frontend/public/Artifix.png" alt="ArtiFix" width="300"/>
+  <br/><br/>
+  <a href="https://youtu.be/jrtAe4J110I">
+    <img src="https://img.shields.io/badge/YouTube-데모_영상-FF0000?logo=youtube&logoColor=white" alt="YouTube 데모 영상"/>
+  </a>
 </div>
 
 # ArtiFix
@@ -856,6 +860,9 @@ ArtiFix/
 │   ├── package.json
 │   └── vite.config.js
 │
+├── notebooks/         # Kaggle 학습·fine-tuning 노트북
+│   ├── multitask.ipynb
+│   └── finetuning.ipynb
 ├── real_dataset/      # fine-tuning 데이터 (Kaggle real-dataset에서 다운로드)
 ├── docs/              # 아키텍처 다이어그램·UI 스크린샷 등 문서 자료
 ├── image/             # 합성 데이터 원본 유물 100장 (Kaggle artifix-artifacts)
@@ -1023,6 +1030,15 @@ GitHub 저장소 용량 제한(100 MB)으로 **학습 가중치**, **fine-tuning
 | Real Dataset | [bearivh/real-dataset](https://www.kaggle.com/datasets/bearivh/real-dataset) | fine-tuning (손상 31장 + 정상 14장) |
 
 학습 파이프라인은 Kaggle GPU 환경에서 수행했습니다.
+
+### 학습 노트북
+
+`notebooks/` 폴더의 아래 파일들은 Kaggle에서 학습·fine-tuning 했던 `.ipynb` 파일이다.
+
+| 파일 | 용도 |
+|------|------|
+| `notebooks/multitask.ipynb` | 베이스 모델 학습 (Ablation Study 포함) |
+| `notebooks/finetuning.ipynb` | 실제 유물 데이터 fine-tuning |
 
 ---
 
